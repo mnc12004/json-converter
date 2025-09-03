@@ -1,0 +1,37 @@
+{
+    "name": "json-converter",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "A ReactJS JSON Converter app for formatting, validating, and converting JSON data",
+    "main": "index.js",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "start": "vite",
+        "deploy": "npm run build && echo 'Build complete! Upload dist/ folder to your web server.'",
+        "serve": "npx serve dist -s -l 3000"
+    },
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "@vitejs/plugin-react": "^4.0.0",
+        "autoprefixer": "^10.4.14",
+        "postcss": "^8.4.24",
+        "tailwindcss": "^3.3.0",
+        "vite": "^4.4.0"
+    },
+    "keywords": [
+        "json",
+        "converter",
+        "react",
+        "formatter",
+        "validator"
+    ],
+    "author": "Cocko",
+    "license": "MIT"
+}
