@@ -1,19 +1,19 @@
 import React, { useState } from 'react'
+import PropTypes from 'prop-types'
 import {
-    dnsLookup,
     comprehensiveDnsLookup,
     pingHost,
     checkSSL,
     portScan,
     validateEmailDomain,
     emailDiagnostics,
-    generateEmailConfigs,
     getWhois,
     checkURL
 } from '../utils/networkUtils'
+import SpeedTest from './SpeedTest'
 
 const NetworkTools = ({ isDarkMode }) => {
-    const [activeTab, setActiveTab] = useState('dns')
+    const [activeTab, setActiveTab] = useState('speedtest')
     const [results, setResults] = useState({})
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -180,6 +180,27 @@ const NetworkTools = ({ isDarkMode }) => {
         const dnsResults = results.dns
         if (!dnsResults) return null
 
+        const getDnsResultContent = (result) => {
+            if (result.error) {
+                return <p className="text-red-600 dark:text-red-400 text-sm">{result.error}</p>
+            }
+            if (result.answers && result.answers.length > 0) {
+                return (
+                    <div className="space-y-1">
+                        {result.answers.map((answer) => (
+                            <div key={answer.data} className="text-sm font-mono bg-white dark:bg-gray-800 p-2 rounded">
+                                <span className="text-gray-600 dark:text-gray-300">TTL:</span>
+                                <span className="text-gray-800 dark:text-gray-100 ml-1">{answer.TTL}</span>
+                                <span className="text-gray-600 dark:text-gray-300 ml-2">| Data:</span>
+                                <span className="text-gray-800 dark:text-gray-100 ml-1">{answer.data}</span>
+                            </div>
+                        ))}
+                    </div>
+                )
+            }
+            return <p className="text-gray-600 dark:text-gray-300 text-sm">No {result.recordType} records found</p>
+        }
+
         return (
             <div className="space-y-4">
                 {Object.entries(dnsResults).map(([recordType, result]) => (
@@ -187,22 +208,7 @@ const NetworkTools = ({ isDarkMode }) => {
                         <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">
                             {recordType} Records
                         </h4>
-                        {result.error ? (
-                            <p className="text-red-600 dark:text-red-400 text-sm">{result.error}</p>
-                        ) : result.answers && result.answers.length > 0 ? (
-                            <div className="space-y-1">
-                                {result.answers.map((answer, index) => (
-                                    <div key={index} className="text-sm font-mono bg-white dark:bg-gray-800 p-2 rounded">
-                                        <span className="text-gray-600 dark:text-gray-300">TTL:</span>
-                                        <span className="text-gray-800 dark:text-gray-100 ml-1">{answer.TTL}</span> |
-                                        <span className="text-gray-600 dark:text-gray-300 ml-2">Data:</span>
-                                        <span className="text-gray-800 dark:text-gray-100 ml-1">{answer.data}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-gray-600 dark:text-gray-300 text-sm">No {recordType} records found</p>
-                        )}
+                        {getDnsResultContent(result)}
                     </div>
                 ))}
             </div>
@@ -240,6 +246,13 @@ const NetworkTools = ({ isDarkMode }) => {
         )
     }
 
+    const getGradeColor = (grade) => {
+        if (!grade) return 'text-gray-600 dark:text-gray-400'
+        if (grade.startsWith('A')) return 'text-green-600 dark:text-green-400'
+        if (grade === 'B') return 'text-yellow-600 dark:text-yellow-400'
+        return 'text-red-600 dark:text-red-400'
+    }
+
     const renderSSLResults = () => {
         const sslResult = results.ssl
         if (!sslResult) return null
@@ -252,11 +265,7 @@ const NetworkTools = ({ isDarkMode }) => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <span className="text-gray-600 dark:text-gray-400">Grade:</span>
-                        <span className={`ml-2 font-bold ${sslResult.grade === 'A+' ? 'text-green-600 dark:text-green-400' :
-                            sslResult.grade === 'A' ? 'text-green-600 dark:text-green-400' :
-                                sslResult.grade === 'B' ? 'text-yellow-600 dark:text-yellow-400' :
-                                    'text-red-600 dark:text-red-400'
-                            }`}>
+                        <span className={`ml-2 font-bold ${getGradeColor(sslResult.grade)}`}>
                             {sslResult.grade || 'N/A'}
                         </span>
                     </div>
@@ -279,8 +288,8 @@ const NetworkTools = ({ isDarkMode }) => {
                     Port Scan - {portResult.hostname}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {portResult.ports.map((port, index) => (
-                        <div key={index} className={`p-2 rounded text-sm ${port.isOpen
+                    {portResult.ports.map((port) => (
+                        <div key={port.port} className={`p-2 rounded text-sm ${port.isOpen
                             ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
                             : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
                             }`}>
@@ -326,8 +335,8 @@ const NetworkTools = ({ isDarkMode }) => {
                     <div className="mt-3">
                         <span className="text-gray-600 dark:text-gray-400 text-sm">MX Records:</span>
                         <div className="mt-1 space-y-1">
-                            {emailResult.mxRecords.map((record, index) => (
-                                <div key={index} className="text-sm font-mono bg-white dark:bg-gray-800 p-2 rounded">
+                            {emailResult.mxRecords.map((record) => (
+                                <div key={record.data} className="text-sm font-mono bg-white dark:bg-gray-800 p-2 rounded">
                                     Priority: {record.data.split(' ')[0]} | {record.data.split(' ')[1]}
                                 </div>
                             ))}
@@ -339,6 +348,7 @@ const NetworkTools = ({ isDarkMode }) => {
     }
 
     const tabs = [
+        { id: 'speedtest', label: 'Speed Test', icon: '⚡' },
         { id: 'dns', label: 'DNS Lookup', icon: '🌐' },
         { id: 'ping', label: 'Ping', icon: '📡' },
         { id: 'ssl', label: 'SSL Check', icon: '🔒' },
@@ -418,32 +428,41 @@ const NetworkTools = ({ isDarkMode }) => {
                     ))}
                 </div>
 
-                {/* Input Section */}
-                <div className="flex gap-4">
-                    <input
-                        type="text"
-                        value={inputValue}
-                        onChange={handleInputChange}
-                        placeholder={getPlaceholder()}
-                        className="flex-1 input-field"
-                        disabled={loading}
-                    />
-                    <button
-                        onClick={handleAction}
-                        disabled={loading || !inputValue.trim()}
-                        className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? 'Checking...' : 'Check'}
-                    </button>
-                </div>
+                {/* Input Section - Hidden for speed test */}
+                {activeTab !== 'speedtest' && (
+                    <>
+                        <div className="flex gap-4">
+                            <input
+                                type="text"
+                                value={inputValue}
+                                onChange={handleInputChange}
+                                placeholder={getPlaceholder()}
+                                className="flex-1 input-field"
+                                disabled={loading}
+                            />
+                            <button
+                                onClick={handleAction}
+                                disabled={loading || !inputValue.trim()}
+                                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loading ? 'Checking...' : 'Check'}
+                            </button>
+                        </div>
 
-                {error && (
-                    <div className="error-message mt-2">{error}</div>
+                        {error && (
+                            <div className="error-message mt-2">{error}</div>
+                        )}
+                    </>
                 )}
             </div>
 
+            {/* Speed Test Section */}
+            {activeTab === 'speedtest' && (
+                <SpeedTest isDarkMode={isDarkMode} />
+            )}
+
             {/* Results Section */}
-            {Object.keys(results).length > 0 && (
+            {Object.keys(results).length > 0 && activeTab !== 'speedtest' && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
                     <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
                         Results
@@ -462,19 +481,13 @@ const NetworkTools = ({ isDarkMode }) => {
                                     <h4 className="font-semibold text-gray-800 dark:text-gray-200">
                                         Email Health Score
                                     </h4>
-                                    <div className={`text-2xl font-bold ${results.emailDiagnostics.healthScore >= 75 ? 'text-green-600 dark:text-green-400' :
-                                        results.emailDiagnostics.healthScore >= 50 ? 'text-yellow-600 dark:text-yellow-400' :
-                                            'text-red-600 dark:text-red-400'
-                                        }`}>
+                                    <div className={`text-2xl font-bold ${getHealthScoreColor(results.emailDiagnostics.healthScore)}`}>
                                         {results.emailDiagnostics.healthScore}%
                                     </div>
                                 </div>
                                 <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                                     <div
-                                        className={`h-2 rounded-full ${results.emailDiagnostics.healthScore >= 75 ? 'bg-green-500' :
-                                            results.emailDiagnostics.healthScore >= 50 ? 'bg-yellow-500' :
-                                                'bg-red-500'
-                                            }`}
+                                        className={`h-2 rounded-full ${getHealthScoreBarColor(results.emailDiagnostics.healthScore)}`}
                                         style={{ width: `${results.emailDiagnostics.healthScore}%` }}
                                     ></div>
                                 </div>
@@ -487,8 +500,8 @@ const NetworkTools = ({ isDarkMode }) => {
                                         Issues Found
                                     </h4>
                                     <ul className="space-y-1">
-                                        {results.emailDiagnostics.issues.map((issue, index) => (
-                                            <li key={index} className="text-sm text-red-700 dark:text-red-300">
+                                        {results.emailDiagnostics.issues.map((issue) => (
+                                            <li key={issue} className="text-sm text-red-700 dark:text-red-300">
                                                 • {issue}
                                             </li>
                                         ))}
@@ -503,8 +516,8 @@ const NetworkTools = ({ isDarkMode }) => {
                                         Recommendations
                                     </h4>
                                     <ul className="space-y-1">
-                                        {results.emailDiagnostics.recommendations.map((rec, index) => (
-                                            <li key={index} className="text-sm text-blue-700 dark:text-blue-300">
+                                        {results.emailDiagnostics.recommendations.map((rec) => (
+                                            <li key={rec} className="text-sm text-blue-700 dark:text-blue-300">
                                                 • {rec}
                                             </li>
                                         ))}
@@ -519,11 +532,11 @@ const NetworkTools = ({ isDarkMode }) => {
                                 </h4>
                                 {results.emailDiagnostics.mx.hasRecords ? (
                                     <div className="space-y-1">
-                                        {results.emailDiagnostics.mx.records.map((record, index) => (
-                                            <div key={index} className="text-sm font-mono bg-white dark:bg-gray-800 p-2 rounded">
+                                        {results.emailDiagnostics.mx.records.map((record) => (
+                                            <div key={record.data} className="text-sm font-mono bg-white dark:bg-gray-800 p-2 rounded">
                                                 <span className="text-gray-600 dark:text-gray-300">Priority:</span>
-                                                <span className="text-gray-800 dark:text-gray-100 ml-1">{record.data.split(' ')[0]}</span> |
-                                                <span className="text-gray-600 dark:text-gray-300 ml-2">Server:</span>
+                                                <span className="text-gray-800 dark:text-gray-100 ml-1">{record.data.split(' ')[0]}</span>
+                                                <span className="text-gray-600 dark:text-gray-300 ml-2">| Server:</span>
                                                 <span className="text-gray-800 dark:text-gray-100 ml-1">{record.data.split(' ')[1]}</span>
                                             </div>
                                         ))}
@@ -568,8 +581,8 @@ const NetworkTools = ({ isDarkMode }) => {
                                 </h4>
                                 {results.emailDiagnostics.dkim.hasRecords ? (
                                     <div className="space-y-2">
-                                        {results.emailDiagnostics.dkim.selectors.map((selector, index) => (
-                                            <div key={index}>
+                                        {results.emailDiagnostics.dkim.selectors.map((selector) => (
+                                            <div key={selector.selector}>
                                                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                     Selector: {selector.selector}
                                                 </div>
@@ -621,6 +634,22 @@ const NetworkTools = ({ isDarkMode }) => {
             )}
         </div>
     )
+}
+
+const getHealthScoreColor = (score) => {
+    if (score >= 75) return 'text-green-600 dark:text-green-400'
+    if (score >= 50) return 'text-yellow-600 dark:text-yellow-400'
+    return 'text-red-600 dark:text-red-400'
+}
+
+const getHealthScoreBarColor = (score) => {
+    if (score >= 75) return 'bg-green-500'
+    if (score >= 50) return 'bg-yellow-500'
+    return 'bg-red-500'
+}
+
+NetworkTools.propTypes = {
+    isDarkMode: PropTypes.bool.isRequired
 }
 
 export default NetworkTools

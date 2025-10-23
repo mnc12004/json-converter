@@ -83,7 +83,7 @@ export const pingHost = async (hostname, timeout = 5000) => {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-        const response = await fetch(`https://${hostname}`, {
+        await fetch(`https://${hostname}`, {
             method: 'HEAD',
             mode: 'no-cors',
             signal: controller.signal
@@ -174,14 +174,14 @@ export const portScan = async (hostname, ports = [80, 443, 22, 21, 25, 53, 110, 
             try {
                 // Try HTTPS first for common ports
                 if (port === 443) {
-                    const response = await fetch(`https://${hostname}:${port}`, {
+                    await fetch(`https://${hostname}:${port}`, {
                         method: 'HEAD',
                         mode: 'no-cors',
                         signal: controller.signal
                     })
                     isOpen = true
                 } else if (port === 80) {
-                    const response = await fetch(`http://${hostname}:${port}`, {
+                    await fetch(`http://${hostname}:${port}`, {
                         method: 'HEAD',
                         mode: 'no-cors',
                         signal: controller.signal
@@ -191,7 +191,7 @@ export const portScan = async (hostname, ports = [80, 443, 22, 21, 25, 53, 110, 
 
                 clearTimeout(timeoutId)
                 responseTime = Date.now() - startTime
-            } catch (error) {
+            } catch {
                 clearTimeout(timeoutId)
                 responseTime = Date.now() - startTime
                 isOpen = false
@@ -331,16 +331,16 @@ export const emailDiagnostics = async (domain) => {
         // Check SPF Record
         try {
             const spfResult = await dnsLookup(domain, 'TXT')
-            const spfRecords = spfResult.answers.filter(record => 
+            const spfRecords = spfResult.answers.filter(record =>
                 record.data.toLowerCase().startsWith('v=spf1')
             )
-            
+
             results.spf = {
                 status: 'success',
                 records: spfRecords,
                 hasRecords: spfRecords.length > 0
             }
-            
+
             if (spfRecords.length === 0) {
                 results.issues.push('No SPF record found - emails may be marked as spam')
                 results.recommendations.push('Add SPF record: v=spf1 include:_spf.google.com ~all')
@@ -364,16 +364,16 @@ export const emailDiagnostics = async (domain) => {
         // Check DMARC Record
         try {
             const dmarcResult = await dnsLookup(`_dmarc.${domain}`, 'TXT')
-            const dmarcRecords = dmarcResult.answers.filter(record => 
+            const dmarcRecords = dmarcResult.answers.filter(record =>
                 record.data.toLowerCase().startsWith('v=dmarc1')
             )
-            
+
             results.dmarc = {
                 status: 'success',
                 records: dmarcRecords,
                 hasRecords: dmarcRecords.length > 0
             }
-            
+
             if (dmarcRecords.length === 0) {
                 results.issues.push('No DMARC record found - domain vulnerable to email spoofing')
                 results.recommendations.push('Add DMARC record: v=DMARC1; p=quarantine; rua=mailto:dmarc@' + domain)
@@ -402,11 +402,11 @@ export const emailDiagnostics = async (domain) => {
         try {
             const commonSelectors = ['default', 'google', 'k1', 'selector1', 'selector2', 'mail', 'dkim']
             const dkimResults = []
-            
+
             for (const selector of commonSelectors) {
                 try {
                     const dkimResult = await dnsLookup(`${selector}._domainkey.${domain}`, 'TXT')
-                    const dkimRecords = dkimResult.answers.filter(record => 
+                    const dkimRecords = dkimResult.answers.filter(record =>
                         record.data.toLowerCase().includes('v=dkim1')
                     )
                     if (dkimRecords.length > 0) {
@@ -415,17 +415,17 @@ export const emailDiagnostics = async (domain) => {
                             records: dkimRecords
                         })
                     }
-                } catch (error) {
+                } catch {
                     // Selector not found, continue
                 }
             }
-            
+
             results.dkim = {
                 status: 'success',
                 selectors: dkimResults,
                 hasRecords: dkimResults.length > 0
             }
-            
+
             if (dkimResults.length === 0) {
                 results.issues.push('No DKIM records found - emails may be marked as spam')
                 results.recommendations.push('Set up DKIM signing with your email provider')
@@ -443,9 +443,9 @@ export const emailDiagnostics = async (domain) => {
             results.dmarc.hasRecords,
             results.dkim.hasRecords
         ].filter(Boolean).length
-        
+
         results.healthScore = Math.round((passedChecks / totalChecks) * 100)
-        
+
         if (results.healthScore < 50) {
             results.issues.push('Critical email delivery issues detected')
             results.recommendations.push('Immediate action required to fix email delivery')
@@ -487,7 +487,7 @@ export const generateEmailConfigs = (domain, emailProvider = 'custom') => {
                 { priority: 10, target: 'ALT4.ASPMX.L.GOOGLE.COM.' }
             ]
             break
-            
+
         case 'outlook':
         case 'microsoft':
             configs.spf = 'v=spf1 include:spf.protection.outlook.com -all'
@@ -497,7 +497,7 @@ export const generateEmailConfigs = (domain, emailProvider = 'custom') => {
                 { priority: 0, target: `${domain}-mail.protection.outlook.com.` }
             ]
             break
-            
+
         case 'custom':
         default:
             configs.spf = `v=spf1 mx ip4:YOUR_SERVER_IP -all`
@@ -525,7 +525,7 @@ export const getWhois = async (domain) => {
     try {
         // Use DNS records to get basic domain information
         const dnsResults = await comprehensiveDnsLookup(domain)
-        
+
         // Extract useful information from DNS records
         const whoisInfo = {
             domain: domain,
@@ -598,7 +598,7 @@ export const checkURL = async (url) => {
     const startTime = Date.now()
 
     try {
-        const response = await fetch(url, {
+        await fetch(url, {
             method: 'HEAD',
             mode: 'no-cors'
         })
@@ -625,5 +625,193 @@ export const checkURL = async (url) => {
             status: 'error',
             timestamp: new Date().toISOString()
         }
+    }
+}
+
+/**
+ * Tests download speed by downloading test files
+ * @param {Function} progressCallback - Callback function for progress updates (speed, progress)
+ * @param {number} duration - Test duration in milliseconds
+ * @returns {Promise<Object>} - Download speed test result
+ */
+export const testDownloadSpeed = async (progressCallback, duration = 10000) => {
+    // Test file URLs of different sizes (using public CDN resources)
+    const testFiles = [
+        'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js', // ~6 KB
+        'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js', // ~130 KB
+        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css', // ~160 KB
+        'https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js', // ~600 KB
+    ]
+
+    let totalBytes = 0
+    let downloadedBytes = 0
+    const startTime = Date.now()
+    let lastUpdateTime = startTime
+    let lastBytes = 0
+    const speeds = []
+
+    try {
+        // Download multiple files repeatedly for the test duration
+        while (Date.now() - startTime < duration) {
+            for (const url of testFiles) {
+                if (Date.now() - startTime >= duration) break
+
+                const response = await fetch(url + '?cache=' + Math.random(), {
+                    cache: 'no-store'
+                })
+
+                if (!response.ok) continue
+
+                const reader = response.body.getReader()
+                let receivedLength = 0
+
+                while (true) {
+                    const { done, value } = await reader.read()
+
+                    if (done) break
+
+                    receivedLength += value.length
+                    totalBytes += value.length
+                    downloadedBytes += value.length
+
+                    // Calculate speed every 100ms
+                    const currentTime = Date.now()
+                    if (currentTime - lastUpdateTime >= 100) {
+                        const timeDiff = (currentTime - lastUpdateTime) / 1000 // seconds
+                        const bytesDiff = downloadedBytes - lastBytes
+                        const speedBps = bytesDiff / timeDiff // bytes per second
+                        const speedMbps = (speedBps * 8) / (1024 * 1024) // Mbps
+
+                        speeds.push(speedMbps)
+                        lastUpdateTime = currentTime
+                        lastBytes = downloadedBytes
+
+                        // Calculate progress
+                        const progress = Math.min(((currentTime - startTime) / duration) * 100, 100)
+
+                        // Call progress callback
+                        if (progressCallback) {
+                            progressCallback(speedMbps, progress)
+                        }
+                    }
+
+                    // Break if test duration exceeded
+                    if (Date.now() - startTime >= duration) {
+                        break
+                    }
+                }
+            }
+        }
+
+        // Calculate final speed (average of all measurements)
+        const avgSpeed = speeds.length > 0
+            ? speeds.reduce((a, b) => a + b, 0) / speeds.length
+            : 0
+
+        // Calculate peak speed
+        const peakSpeed = speeds.length > 0 ? Math.max(...speeds) : 0
+
+        return {
+            speed: avgSpeed,
+            peakSpeed: peakSpeed,
+            totalBytes: totalBytes,
+            duration: Date.now() - startTime,
+            timestamp: new Date().toISOString()
+        }
+    } catch (error) {
+        throw new Error(`Download speed test failed: ${error.message}`)
+    }
+}
+
+/**
+ * Tests upload speed by uploading data
+ * @param {Function} progressCallback - Callback function for progress updates (speed, progress)
+ * @param {number} duration - Test duration in milliseconds
+ * @returns {Promise<Object>} - Upload speed test result
+ */
+export const testUploadSpeed = async (progressCallback, duration = 10000) => {
+    // Generate test data (1 MB chunks)
+    const generateTestData = (sizeInMB) => {
+        const size = sizeInMB * 1024 * 1024
+        const chunk = new Uint8Array(size)
+        for (let i = 0; i < size; i++) {
+            chunk[i] = Math.floor(Math.random() * 256)
+        }
+        return chunk
+    }
+
+    // Use httpbin.org for testing (it echoes back POST data)
+    const testUrl = 'https://httpbin.org/post'
+
+    let totalBytes = 0
+    let uploadedBytes = 0
+    const startTime = Date.now()
+    const speeds = []
+
+    try {
+        // Upload data repeatedly for the test duration
+        while (Date.now() - startTime < duration) {
+            // Generate 0.5 MB test data
+            const testData = generateTestData(0.5)
+            const uploadStartTime = Date.now()
+
+            try {
+                const response = await fetch(testUrl, {
+                    method: 'POST',
+                    body: testData,
+                    headers: {
+                        'Content-Type': 'application/octet-stream'
+                    }
+                })
+
+                const uploadEndTime = Date.now()
+                const uploadDuration = (uploadEndTime - uploadStartTime) / 1000 // seconds
+
+                if (response.ok) {
+                    uploadedBytes += testData.length
+                    totalBytes += testData.length
+
+                    // Calculate speed
+                    const speedBps = testData.length / uploadDuration // bytes per second
+                    const speedMbps = (speedBps * 8) / (1024 * 1024) // Mbps
+
+                    speeds.push(speedMbps)
+
+                    // Calculate progress
+                    const progress = Math.min(((uploadEndTime - startTime) / duration) * 100, 100)
+
+                    // Call progress callback
+                    if (progressCallback) {
+                        progressCallback(speedMbps, progress)
+                    }
+                }
+            } catch (error) {
+                // Continue testing even if one request fails
+                console.warn('Upload request failed:', error.message)
+            }
+
+            // Break if test duration exceeded
+            if (Date.now() - startTime >= duration) {
+                break
+            }
+        }
+
+        // Calculate final speed (average of all measurements)
+        const avgSpeed = speeds.length > 0
+            ? speeds.reduce((a, b) => a + b, 0) / speeds.length
+            : 0
+
+        // Calculate peak speed
+        const peakSpeed = speeds.length > 0 ? Math.max(...speeds) : 0
+
+        return {
+            speed: avgSpeed,
+            peakSpeed: peakSpeed,
+            totalBytes: totalBytes,
+            duration: Date.now() - startTime,
+            timestamp: new Date().toISOString()
+        }
+    } catch (error) {
+        throw new Error(`Upload speed test failed: ${error.message}`)
     }
 }

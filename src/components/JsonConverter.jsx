@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { validateJson, formatJson, minifyJson, convertToYaml, convertToXml, autoFixJson, extractRevenueCatJson, extractNestedJson } from '../utils/jsonUtils'
+import React, { useState } from 'react'
+import { validateJson, formatJson, minifyJson, convertToYaml, convertToXml, autoFixJson, extractRevenueCatJson } from '../utils/jsonUtils'
 import JsonEditor from './JsonEditor'
 import JsonViewer from './JsonViewer'
+import JsonVisualizer from './JsonVisualizer'
+import { Link } from 'react-router-dom'
 
 const JsonConverter = ({ isDarkMode }) => {
     const [inputJson, setInputJson] = useState('')
@@ -9,6 +11,7 @@ const JsonConverter = ({ isDarkMode }) => {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
     const [outputFormat, setOutputFormat] = useState('formatted')
+    const [showVisualizer, setShowVisualizer] = useState(false)
 
     const handleInputChange = (e) => {
         setInputJson(e.target.value)
@@ -230,6 +233,18 @@ const JsonConverter = ({ isDarkMode }) => {
                         <button onClick={handleMinify} className="btn-primary">
                             Minify
                         </button>
+                        <button
+                            onClick={() => setShowVisualizer(!showVisualizer)}
+                            className={`btn-primary ${showVisualizer ? 'bg-green-600 hover:bg-green-700' : 'bg-teal-600 hover:bg-teal-700'}`}
+                        >
+                            {showVisualizer ? 'Hide Tree' : 'Show Tree'}
+                        </button>
+                        <Link
+                            to="/visualizer"
+                            className="btn-primary bg-purple-600 hover:bg-purple-700"
+                        >
+                            🌳 Full Tree View
+                        </Link>
                     </div>
 
                     {error && <div className="error-message">{error}</div>}
@@ -274,6 +289,22 @@ const JsonConverter = ({ isDarkMode }) => {
                         className="h-80"
                     />
                 </div>
+
+                {/* JSON Tree Visualizer */}
+                {showVisualizer && (
+                    <div className="mt-8">
+                        <JsonVisualizer
+                            jsonData={(() => {
+                                try {
+                                    return outputJson ? JSON.parse(outputJson) : null
+                                } catch {
+                                    return null
+                                }
+                            })()}
+                            isDarkMode={isDarkMode}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Features Section */}
@@ -312,6 +343,7 @@ const JsonConverter = ({ isDarkMode }) => {
                     </div>
                 </div>
             </div>
+
         </div>
     )
 }
